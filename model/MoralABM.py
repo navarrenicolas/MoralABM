@@ -3,17 +3,18 @@ from scipy.stats import beta, multinomial
 import scipy.special as sp
 
 # use the smoothing parameter to influence reliability of the agent
-def softmax(x,beta=1):
-    return np.exp(beta*x)/np.exp(beta*x).sum()
+def softmax(x,b=1):
+    x=np.array(x)
+    return np.exp(b*x)/np.exp(b*x).sum()
 
 class MoralABM():
 
-    def __init__(self,n_agents=10,n_steps=50,representation='dirichlet',priors=[]):
+    def __init__(self,n_agents=10,n_steps=50,beta_prior=False,priors=[]):
         ## Define agents' moral distribution parameters
-        if representation == 'dirichlet':
-            self.n_params = 5 + 1 # 5 moral representations (dirichlet) + 1 reliability
-        else:
+        if beta_prior:
             self.n_params = 10 + 1 # 10 moral representations (betas) + 1 reliability
+        else:
+            self.n_params = 5 + 1 # 5 moral representations (dirichlet) + 1 reliability
         
         self.n_agents = n_agents
         self.n_steps = n_steps
@@ -31,7 +32,6 @@ class MoralABM():
         # participant IDs
         self.agent_ids = np.zeros(n_agents)
 
-        # If moral foundation priors present
         if not priors:
             # Set moral distribution priors
             # We may want to pass these as an unput in the future
@@ -48,8 +48,8 @@ class MoralABM():
                 for agent_a in range(n_agents):
                     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
         else:
-            conservative_priors = priors[0]
-            liberal_priors = priors[1]
+            # If moral foundation priors present
+
             # Set initial conditions (distribution and beta parameters)
             for agent_i in range(n_agents):
 
@@ -69,10 +69,10 @@ class MoralABM():
         self._run()
 
         
-    # Saple moral values from base distribution
+    # Sample moral values from base distribution
     def sample_moral_values(self,agent_i,agent_a,step):
         M = self.M_agents[agent_i,agent_a,:(self.n_params-1),step]
-        # Hack for dirichlet version
+        # Hack for beta distribution 
         if self.n_params > 6:
             return [beta.rvs(M[i],M[i+1],size=1)[0] for i in 2*np.arange(5)]
         else:
@@ -83,7 +83,7 @@ class MoralABM():
         morals = self.sample_moral_values(agent_i,agent_i,step)
         # signal = np.random.choice(np.arange(5), p=morals)
         morals_normed = softmax(morals,
-                                beta=self.M_agents[agent_i,agent_i,self.n_params-1,step]
+                                b=self.M_agents[agent_i,agent_i,self.n_params-1,step]
                                )
         signal = np.random.choice(np.arange(5), p=morals_normed)
         return signal
@@ -103,38 +103,50 @@ class MoralABM():
         # Belief of agent_q about agent_p's values
         rep_p = self.M_agents[(agent_q if belief else agent_p),agent_p,:(self.n_params-1),step] 
         rep_q = self.M_agents[agent_q,agent_q,:(self.n_params-1),step] # agent_q's actual values
-    
-        p_sum = rep_p.sum()
-        q_sum = rep_q.sum()
-        
-        if self.n_params > 6 :
-            # Beta KL div
-            return
-        # KL_div = np.log(gamma(p_sum)/gamma(q_sum)) + np.log(gamma(rep_q)/gamma(rep_p)).sum() + np.sum([(alpha_p-alpha_q) * (digamma(alpha_p)-digamma(p_sum)) for alpha_p,alpha_q in zip(rep_p,rep_q)])
-        
-        term1 = sp.gammaln(p_sum) - sp.gammaln(q_sum)
-        term2 = sp.gammaln(rep_q).sum() - sp.gammaln(rep_p).sum()
-        term3 = np.sum([(alpha_p-alpha_q) * (sp.psi(alpha_p)-sp.psi(p_sum)) for alpha_p,alpha_q in zip(rep_p,rep_q)])
 
-        KL_div = term1 + term2 + term3
+        if self.n_params > 6 :
+            KL_div = sum([self._dirichlet_KL(rep_p[m:m+2],rep_q[m:m+2]) for m in 2*np.arange(5)])
+        else:
+            KL_div = self._dirichlet_KL(rep_p,rep_q)
         
         if KL_div < 0:
             print('Oops! KL divergence is negative.', f'P: {agent_p}, Q: {agent_q}, step: {step}')
         return KL_div
 
+    def _dirichlet_KL(self,p,q):
+
+            p_sum = sum(p)
+            q_sum = sum(q)
+
+            term1 = sp.gammaln(p_sum) - sp.gammaln(q_sum)
+            term2 = sp.gammaln(q).sum() - sp.gammaln(p).sum()
+            term3 = np.sum([(alpha_p-alpha_q) * (sp.psi(alpha_p)-sp.psi(p_sum)) for alpha_p,alpha_q in zip(p,q)])
+
+            return term1 + term2 + term3
 
     def update_morality(self,step):
         self.M_agents[:,:,:,step+1] = self.M_agents[:,:,:,step] # copy last state
         for agent_i in range(self.n_agents):
             for agent_a in range(self.n_agents):
                 signal_a = int(self.signals[agent_a,step])
-                self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][signal_a] += 1 # Dirichlet-Multinomial update
+                if self.n_params >6:
+                    self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][2*signal_a] += 1 # Beta-Multinomial update
+                    # Increase the b parameter of the other moral foundations by 1/4 each (evidence they chose against one of these foundations)
+                    b_locs = np.delete((2*np.arange(5))+1,signal_a)
+                    self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][b_locs] += 1/4 # Beta-Multinomial update
+                else:
+                    self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][signal_a] += 1 # Dirichlet-Multinomial update
                 if agent_i == agent_a:
                     continue
                 # Weighted update
-                self.M_agents[agent_i,agent_i,:(self.n_params-1),step+1][signal_a] += np.exp(
-                    -self.KL_divergence(agent_a,agent_i,step)
-                )/(self.n_agents-1) # Dirichlet-Multinomial update 
+                update_weight = np.exp(-self.KL_divergence(agent_a,agent_i,step))/(self.n_agents-1) # Dirichlet-Multinomial update 
+
+                if self.n_params >6:
+                    self.M_agents[agent_i,agent_i,:(self.n_params-1),step+1][2*signal_a] += update_weight
+                    b_locs = np.delete((2*np.arange(5))+1,signal_a)
+                    self.M_agents[agent_i,agent_i,:(self.n_params-1),step+1][b_locs] += update_weight/4
+                else:
+                    self.M_agents[agent_i,agent_i,:(self.n_params-1),step+1][signal_a] += update_weight
 
     # run from initial conditions
     def _run(self):
