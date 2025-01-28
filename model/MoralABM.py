@@ -32,6 +32,10 @@ class MoralABM():
         # participant IDs
         self.agent_ids = np.zeros(n_agents)
 
+        # generated graphs
+        self.mf_graph = np.zeros((self.n_agents,self.n_agents,self.n_steps))
+        self.belief_graph = np.zeros((self.n_agents,self.n_agents,self.n_steps))
+
         if not priors:
             # Set moral distribution priors
             # We may want to pass these as an unput in the future
@@ -125,6 +129,9 @@ class MoralABM():
             return term1 + term2 + term3
 
     def update_morality(self,step):
+
+        
+        
         self.M_agents[:,:,:,step+1] = self.M_agents[:,:,:,step] # copy last state
         for agent_i in range(self.n_agents):
             for agent_a in range(self.n_agents):
@@ -138,8 +145,14 @@ class MoralABM():
                     self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][signal_a] += 1 # Dirichlet-Multinomial update
                 if agent_i == agent_a:
                     continue
+
+                # Compute and save the KL divergencces of the previous state
+                self.belief_graph[agent_i,agent_a,step] = self.KL_divergence(agent_a,agent_i,step,belief=True)
+                self.mf_graph[agent_i,agent_a,step] = self.KL_divergence(agent_a,agent_i,step,belief=False)
+                
                 # Weighted update
-                update_weight = np.exp(-self.KL_divergence(agent_a,agent_i,step))/(self.n_agents-1) # Dirichlet-Multinomial update 
+                update_weight = np.exp(-self.belief_graph[agent_i,agent_a,step])/(self.n_agents-1) # Dirichlet-Multinomial update 
+                
 
                 if self.n_params >6:
                     self.M_agents[agent_i,agent_i,:(self.n_params-1),step+1][2*signal_a] += update_weight
