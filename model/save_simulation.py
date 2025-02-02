@@ -63,7 +63,9 @@ for sim in range(n_sims):
     abm = MoralABM(n_agents = n_agents,
                    n_steps = n_steps,
                    priors = [conservative_priors,liberal_priors],
-                   beta_prior=beta)
+                   beta_prior=beta,
+                   normalize=True
+                  )
 
     # save the data    
     np.save(data_loc+'mf_'+f'{'beta' if beta else 'dirichlet'}'+'-' + str(sim_id) + '.npy',
@@ -83,8 +85,8 @@ for sim in range(n_sims):
 
     # AMs = np.array([abm.get_adjacency_matrix(step) for step in range(n_steps) if step%10 ==0])
     # Belief_AMs = np.array([abm.get_adjacency_matrix(step,belief=True) for step in range(n_steps) if step%10 ==0])
-    AMs = abm.mf_graph[:,:,[n%10==0 for n in range(n_steps)]]
-    Belief_AMs = abm.belief_graph[:,:,[n%10==0 for n in range(n_steps)]]
+    AMs = abm.mf_graph[[n%10==0 for n in range(n_steps)],:,:]
+    Belief_AMs = abm.belief_graph[[n%10==0 for n in range(n_steps)],:,:]
 
     
     np.save(data_loc+'mf_graphs_beta-' + str(sim_id) + '.npy', AMs)
