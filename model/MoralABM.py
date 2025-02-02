@@ -49,11 +49,11 @@ class MoralABM():
                 # Randomly assign agents to conservative or liberal groups
 
 
-                # Assume all other agents are random
-                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
+                # # Assume all other agents are random
+                # self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
                 # # Assume all other agents are the same
-                # for agent_a in range(n_agents):
-                #     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
+                for agent_a in range(n_agents):
+                    self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
                 self.M_agents[agent_i,agent_i,:(self.n_params-1),0] = self.political_priors[np.random.choice([0,1],p=[1/2,1/2])]
         else:
             # If moral foundation priors present
@@ -67,10 +67,10 @@ class MoralABM():
                 
                 
                 # Assume all other agents are random
-                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
+                # self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
                 # # Assume all other agents are the same
-                # for agent_a in range(n_agents):
-                #     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
+                for agent_a in range(n_agents):
+                    self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
                 self.M_agents[agent_i,agent_i,:(self.n_params-1),0] =  prior[self.agent_ids[agent_i]]
                     
         
@@ -143,8 +143,8 @@ class MoralABM():
                 for agent_a in range(self.n_agents):
                     if self.n_params>6:
                         for i in 2*np.arange(5):
-                            unnormed_vals = self.M_agents[agent_i,agent_a,i:+2,step]
-                            self.M_agents[agent_i,agent_a,i:+2,step] = unnormed_vals/sum(unnormed_vals)
+                            unnormed_vals = self.M_agents[agent_i,agent_a,i:i+2,step]
+                            self.M_agents[agent_i,agent_a,i:i+2,step] = unnormed_vals/sum(unnormed_vals)
                     else:
                         unnormed_vals = self.M_agents[agent_i,agent_a,:(self.n_params-1),step]
                         self.M_agents[agent_i,agent_a,:(self.n_params-1),step] = unnormed_vals/sum(unnormed_vals)
