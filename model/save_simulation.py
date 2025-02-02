@@ -39,11 +39,11 @@ liberal_betas = mf_priors[mf_priors.bin_pol=='liberal'].groupby('id').apply(
 
 beta = True # Use beta distributions for moral foundations
 n_sims = 5
-n_agent_mean = 20 # mean of normal 
-n_agent_scale = 5 # std dev
+n_agent_mean = 50 # mean of normal 
+n_agent_scale = 10 # std dev
 
 n_agent_samples = np.random.normal(loc=n_agent_mean, scale=n_agent_scale,size=n_sims)
-n_steps = 101
+n_steps = 401
 
 data_loc = './simulation_data/'
 
