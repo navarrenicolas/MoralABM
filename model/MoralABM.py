@@ -9,7 +9,7 @@ def softmax(x,b=1):
 
 class MoralABM():
 
-    def __init__(self,n_agents=10,n_steps=50,beta_prior=False,priors=[]):
+    def __init__(self,n_agents=10,n_steps=50,beta_prior=False,priors=[],normalize=False):
         ## Define agents' moral distribution parameters
         if beta_prior:
             self.n_params = 10 + 1 # 10 moral representations (betas) + 1 reliability
@@ -33,8 +33,8 @@ class MoralABM():
         self.agent_ids = np.zeros(n_agents)
 
         # generated graphs
-        self.mf_graph = np.zeros((self.n_agents,self.n_agents,self.n_steps))
-        self.belief_graph = np.zeros((self.n_agents,self.n_agents,self.n_steps))
+        self.mf_graph = np.zeros((self.n_steps,self.n_agents,self.n_agents))
+        self.belief_graph = np.zeros((self.n_steps,self.n_agents,self.n_agents))
 
         if not priors:
             # Set moral distribution priors
@@ -45,12 +45,14 @@ class MoralABM():
             # Set initial conditions (distribution and beta parameters)
             for agent_i in range(n_agents):
                 # Randomly assign agents to conservative or liberal groups
-                self.M_agents[agent_i,agent_i,:(self.n_params-1),0] = self.political_priors[np.random.choice([0,1],
-                                                                                                        p=[1/2,1/2]
-                                                                                                       )]
-                # Assume all other agents are the same
-                for agent_a in range(n_agents):
-                    self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
+
+
+                # Assume all other agents are random
+                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agent,self.n_params-1)*6+1
+                # # Assume all other agents are the same
+                # for agent_a in range(n_agents):
+                #     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
+                self.M_agents[agent_i,agent_i,:(self.n_params-1),0] = self.political_priors[np.random.choice([0,1],p=[1/2,1/2])]
         else:
             # If moral foundation priors present
 
@@ -60,17 +62,22 @@ class MoralABM():
                 # first half conservative, second half liberal
                 prior = priors[int(agent_i >= n_agents//2)]
                 self.agent_ids[agent_i] = int(np.random.choice(prior.index))
-                self.M_agents[agent_i,agent_i,:(self.n_params-1),0] =  prior[self.agent_ids[agent_i]]
                 
-                # Assume all other agents are the same
-                for agent_a in range(n_agents):
-                    self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
+                self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
+
+                # Assume all other agents are random
+                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agent,self.n_params-1)*6+1
+                # # Assume all other agents are the same
+                # for agent_a in range(n_agents):
+                #     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
+                self.M_agents[agent_i,agent_i,:(self.n_params-1),0] =  prior[self.agent_ids[agent_i]]
+                    
         
         # set beta (decision) parameters
         self.M_agents[:,:,self.n_params-1,:] = np.ones((self.n_agents,self.n_agents,self.n_steps))
 
         # Run the simulations
-        self._run()
+        self._run(normalize)
 
         
     # Sample moral values from base distribution
@@ -128,10 +135,14 @@ class MoralABM():
 
             return term1 + term2 + term3
 
-    def update_morality(self,step):
+    def update_morality(self,step,normalize=False):
 
-        
-        
+        if normalize:
+            for agent_i in range(self.n_agents):
+                for agent_a in range(self.n_agents):
+                    unnormed_vals = self.M_agents[agent_i,agent_a,:(self.n_params-1),step]
+                    self.M_agents[agent_i,agent_a,:(self.n_params-1),step] = unnormed_vals/sum(unnormed_vals)
+            
         self.M_agents[:,:,:,step+1] = self.M_agents[:,:,:,step] # copy last state
         for agent_i in range(self.n_agents):
             for agent_a in range(self.n_agents):
@@ -147,11 +158,11 @@ class MoralABM():
                     continue
 
                 # Compute and save the KL divergencces of the previous state
-                self.belief_graph[agent_i,agent_a,step] = self.KL_divergence(agent_a,agent_i,step,belief=True)
-                self.mf_graph[agent_i,agent_a,step] = self.KL_divergence(agent_a,agent_i,step,belief=False)
+                self.belief_graph[step,agent_i,agent_a] = self.KL_divergence(agent_a,agent_i,step,belief=True)
+                self.mf_graph[step,agent_i,agent_a] = self.KL_divergence(agent_a,agent_i,step,belief=False)
                 
                 # Weighted update
-                update_weight = np.exp(-self.belief_graph[agent_i,agent_a,step])/(self.n_agents-1) # Dirichlet-Multinomial update 
+                update_weight = np.exp(-self.belief_graph[step,agent_i,agent_a])/(self.n_agents-1) # Dirichlet-Multinomial update 
                 
 
                 if self.n_params >6:
@@ -162,7 +173,7 @@ class MoralABM():
                     self.M_agents[agent_i,agent_i,:(self.n_params-1),step+1][signal_a] += update_weight
 
     # run from initial conditions
-    def _run(self):
+    def _run(self,normalize=False):
         for step in range(self.n_steps-1):
             # generate the signals
             self.signals[:,step] = [self.generate_signal(agent_i,step) for agent_i in range(self.n_agents)]
