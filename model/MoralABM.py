@@ -16,6 +16,8 @@ class MoralABM():
         else:
             self.n_params = 5 + 1 # 5 moral representations (dirichlet) + 1 reliability
         
+        self.normalize = normalize
+        
         self.n_agents = n_agents
         self.n_steps = n_steps
         
@@ -48,7 +50,7 @@ class MoralABM():
 
 
                 # Assume all other agents are random
-                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agent,self.n_params-1)*6+1
+                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
                 # # Assume all other agents are the same
                 # for agent_a in range(n_agents):
                 #     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
@@ -63,10 +65,9 @@ class MoralABM():
                 prior = priors[int(agent_i >= n_agents//2)]
                 self.agent_ids[agent_i] = int(np.random.choice(prior.index))
                 
-                self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
-
+                
                 # Assume all other agents are random
-                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agent,self.n_params-1)*6+1
+                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
                 # # Assume all other agents are the same
                 # for agent_a in range(n_agents):
                 #     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
@@ -77,7 +78,7 @@ class MoralABM():
         self.M_agents[:,:,self.n_params-1,:] = np.ones((self.n_agents,self.n_agents,self.n_steps))
 
         # Run the simulations
-        self._run(normalize)
+        self._run()
 
         
     # Sample moral values from base distribution
@@ -135,13 +136,18 @@ class MoralABM():
 
             return term1 + term2 + term3
 
-    def update_morality(self,step,normalize=False):
+    def update_morality(self,step):
 
-        if normalize:
+        if self.normalize:
             for agent_i in range(self.n_agents):
                 for agent_a in range(self.n_agents):
-                    unnormed_vals = self.M_agents[agent_i,agent_a,:(self.n_params-1),step]
-                    self.M_agents[agent_i,agent_a,:(self.n_params-1),step] = unnormed_vals/sum(unnormed_vals)
+                    if self.n_params>6:
+                        for i in 2*np.arange(5):
+                            unnormed_vals = self.M_agents[agent_i,agent_a,i:+2,step]
+                            self.M_agents[agent_i,agent_a,i:+2,step] = unnormed_vals/sum(unnormed_vals)
+                    else:
+                        unnormed_vals = self.M_agents[agent_i,agent_a,:(self.n_params-1),step]
+                        self.M_agents[agent_i,agent_a,:(self.n_params-1),step] = unnormed_vals/sum(unnormed_vals)
             
         self.M_agents[:,:,:,step+1] = self.M_agents[:,:,:,step] # copy last state
         for agent_i in range(self.n_agents):
@@ -173,11 +179,11 @@ class MoralABM():
                     self.M_agents[agent_i,agent_i,:(self.n_params-1),step+1][signal_a] += update_weight
 
     # run from initial conditions
-    def _run(self,normalize=False):
+    def _run(self,):
         for step in range(self.n_steps-1):
             # generate the signals
             self.signals[:,step] = [self.generate_signal(agent_i,step) for agent_i in range(self.n_agents)]
-            self.update_morality(step)
+            self.update_morality(step,)
     
     def get_adjacency_matrix(self,step,belief=False):
         network = np.zeros((self.n_agents,self.n_agents))
