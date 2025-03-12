@@ -49,11 +49,11 @@ class MoralABM():
                 # Randomly assign agents to conservative or liberal groups
 
 
-                # # Assume all other agents are random
-                # self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
+                # Assume all other agents are random
+                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
                 # # Assume all other agents are the same
-                for agent_a in range(n_agents):
-                    self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
+                # for agent_a in range(n_agents):
+                #     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
                 self.M_agents[agent_i,agent_i,:(self.n_params-1),0] = self.political_priors[np.random.choice([0,1],p=[1/2,1/2])]
         else:
             # If moral foundation priors present
@@ -67,10 +67,10 @@ class MoralABM():
                 
                 
                 # Assume all other agents are random
-                # self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
-                # # Assume all other agents are the same
-                for agent_a in range(n_agents):
-                    self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
+                self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
+                # Assume all other agents are the same
+                # for agent_a in range(n_agents):
+                #     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
                 self.M_agents[agent_i,agent_i,:(self.n_params-1),0] =  prior[self.agent_ids[agent_i]]
                     
         
@@ -93,11 +93,12 @@ class MoralABM():
     # generate a moral signal
     def generate_signal(self,agent_i,step):
         morals = self.sample_moral_values(agent_i,agent_i,step)
+        moral_dilemmas = np.random.choice(np.arange(5),2, replace=False)
         # signal = np.random.choice(np.arange(5), p=morals)
-        morals_normed = softmax(morals,
+        morals_normed = softmax([moral for i, moral in enumerate(morals) if i in moral_dilemmas],
                                 b=self.M_agents[agent_i,agent_i,self.n_params-1,step]
                                )
-        signal = np.random.choice(np.arange(5), p=morals_normed)
+        signal = np.random.choice(moral_dilemmas, p=morals_normed)
         return signal
     
     # compute likelihood of a signal
@@ -152,6 +153,9 @@ class MoralABM():
         self.M_agents[:,:,:,step+1] = self.M_agents[:,:,:,step] # copy last state
         for agent_i in range(self.n_agents):
             for agent_a in range(self.n_agents):
+                # skip the update here if we do not want self-influencing (a critical point for polarization)
+                # if agent_i == agent_a:
+                #     continue
                 signal_a = int(self.signals[agent_a,step])
                 if self.n_params >6:
                     self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][2*signal_a] += 1 # Beta-Multinomial update
@@ -160,7 +164,8 @@ class MoralABM():
                     self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][b_locs] += 1/4 # Beta-Multinomial update
                 else:
                     self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][signal_a] += 1 # Dirichlet-Multinomial update
-                if agent_i == agent_a:
+                
+                if agent_i == agent_a: # No need to compute KLdivs if already updated itself
                     continue
 
                 # Compute and save the KL divergencces of the previous state
@@ -168,7 +173,7 @@ class MoralABM():
                 self.mf_graph[step,agent_i,agent_a] = self.KL_divergence(agent_a,agent_i,step,belief=False)
                 
                 # Weighted update
-                update_weight = np.exp(-self.belief_graph[step,agent_i,agent_a])/(self.n_agents-1) # Dirichlet-Multinomial update 
+                update_weight = np.exp(-self.belief_graph[step,agent_i,agent_a])#/(self.n_agents-1) # Dirichlet-Multinomial update 
                 
 
                 if self.n_params >6:
