@@ -9,7 +9,7 @@ def softmax(x,b=1):
 
 class MoralABM():
 
-    def __init__(self,n_agents=10,n_steps=50,beta_prior=False,priors=[],normalize=False):
+    def __init__(self,n_agents=10,n_steps=50,beta_prior=False,priors=[],normalize=False,self_influence=False):
         ## Define agents' moral distribution parameters
         if beta_prior:
             self.n_params = 10 + 1 # 10 moral representations (betas) + 1 reliability
@@ -37,6 +37,8 @@ class MoralABM():
         # generated graphs
         self.mf_graph = np.zeros((self.n_steps,self.n_agents,self.n_agents))
         self.belief_graph = np.zeros((self.n_steps,self.n_agents,self.n_agents))
+
+        self.self_influence = self_influence
 
         if not priors:
             # Set moral distribution priors
@@ -154,8 +156,9 @@ class MoralABM():
         for agent_i in range(self.n_agents):
             for agent_a in range(self.n_agents):
                 # skip the update here if we do not want self-influencing (a critical point for polarization)
-                # if agent_i == agent_a:
-                #     continue
+                if not self.self_influence:
+                    if agent_i == agent_a:
+                        continue
                 signal_a = int(self.signals[agent_a,step])
                 if self.n_params >6:
                     self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][2*signal_a] += 1 # Beta-Multinomial update

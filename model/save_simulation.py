@@ -38,7 +38,7 @@ liberal_betas = mf_priors[mf_priors.bin_pol=='liberal'].groupby('id').apply(
 
 
 beta = True # Use beta distributions for moral foundations
-n_sims = 5
+n_sims = 2
 n_agent_mean = 100 # mean of normal 
 n_agent_scale = 15 # std dev
 
