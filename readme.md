@@ -1,6 +1,13 @@
 # Political Polarization and Fractionalisation from Rational Values-Based Inference in an Agent-Based Graph Network
 
-Nicolas Navarre, Julie Pedersen, Adam Moore
+## Nicolas Navarre, Julie Pedersen, Adam Moore
+
+<img src="data/normalized_data/analysis_files/figure-html/time plots-1.png" alt="time-plots" height="500">
+
+<img src="data/normalized_data/analysis_files/figure-html/conservative-cluster size correlation-1.png" alt="cluster-plots" height="500">
+
+
+## Data
 
 `data` folder contains all of the data and corresponding plots, stats and analyses for the following simulations.
 The full simulation data can be found in the public OSF: 
