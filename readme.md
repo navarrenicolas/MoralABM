@@ -2,11 +2,6 @@
 
 ## Nicolas Navarre, Julie Pedersen, Adam Moore
 
-<img src="data/normalized_data/analysis_files/figure-html/time plots-1.png" alt="time-plots" height="500">
-
-<img src="data/normalized_data/analysis_files/figure-html/conservative-cluster size correlation-1.png" alt="cluster-plots" height="500">
-
-
 ## Data
 
 `data` folder contains all of the data and corresponding plots, stats and analyses for the following simulations.
@@ -54,3 +49,6 @@ Using quarto, you can render the figures:
 quarto render ./analyses/analysis.qmd --output-dir ../data/example_data/
 ```
 
+<img src="data/normalized_data/analysis_files/figure-html/time plots-1.png" alt="time-plots" height="500">
+
+<img src="data/normalized_data/analysis_files/figure-html/conservative-cluster size correlation-1.png" alt="cluster-plots" height="500">
