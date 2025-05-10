@@ -1,0 +1,257 @@
+---
+title: "Tables, Figures, and Statistics for example simulations"
+authors: Nicolas Navarre, Julie Pedersen
+format: html
+editor: visual
+---
+
+note, this script is adapted to run on the sample data files on the OSF.
+
+```{r setup: packages}
+library(tidyverse)
+library(data.table)
+library(ggstatsplot)
+library(patchwork)
+
+main_dir <- "../data/example_data/" # data location
+```
+
+# clustering
+
+```{r cluster data}
+cluster_data <- data.table( read_csv(str_c(main_dir,"plot_data/acc_homog-beta.csv")))
+```
+
+## homogeneity index
+
+```{r homogeneity plot}
+hom_plot <- 
+  ggplot(data = cluster_data, 
+                                  aes(y = homog,x=step))+
+  stat_summary(geom = "line", alpha = 0.05, size = 0.3,
+               aes(colour = bin_pol, 
+                   group = interaction(sim_id, bin_pol)))+
+  stat_summary(geom = "line",aes(colour = bin_pol), size = 0.5)+
+  scale_color_manual(values=c("#AF2820","#345DA9"))+
+  ylim(0,1)+
+  labs(y = "Average homogeneity", x= "Time steps", 
+       color = "Political identity", title = "Homogeneity index")+
+  theme_ggstatsplot() +
+  theme(panel.background = element_rect(fill = "white", color = "black", linetype ="solid"),
+        strip.background = element_rect(fill = "white", color = "white"),
+        strip.text = element_text(size = 8),
+        axis.text = element_text(size = 7),
+        plot.title = element_text(size = 9),
+        axis.title = element_text(size = 8),
+        axis.line = element_line(color = "black"))
+```
+
+## accuracy plot
+
+```{r accuracy plot}
+acc_plot <- 
+  ggplot(data = cluster_data, 
+                                  aes(y = acc,x=step))+
+  stat_summary(geom = "line", alpha = 0.05, size = 0.3,
+               aes(colour = bin_pol, 
+                   group = interaction(sim_id, bin_pol)))+
+  stat_summary(geom = "line",aes(colour = bin_pol), size = 0.5)+
+  scale_color_manual(values=c("#AF2820","#345DA9"))+
+  ylim(0,1)+
+  labs(y = "Average accuracy", x= "Time steps", 
+       color = "Political identity", title = "Accuracy index")+
+  theme_ggstatsplot() +
+  theme(panel.background = element_rect(fill = "white", color = "black", linetype ="solid"),
+        strip.background = element_rect(fill = "white", color = "white"),
+        strip.text = element_text(size = 8),
+        axis.text = element_text(size = 7),
+        plot.title = element_text(size = 9),
+        axis.title = element_text(size = 8),
+        axis.line = element_line(color = "black"))
+```
+
+## plotting
+
+```{r plot}
+(hom_plot|acc_plot) +
+  plot_annotation(tag_levels = 'A')+
+  plot_layout(guides = "collect")&
+  theme(legend.position='bottom',
+        legend.key.size = unit(0.4, "cm"),
+        legend.text = element_text(size = 6),
+        legend.title = element_text(size = 6),
+        legend.background = element_rect(fill = "white", color = "black"))
+
+# uncomment to save in size used in the paper
+#ggsave(filename = "hor_cluster_beta.png", path = main_dir, 
+       #width =17.5, height = 8, units = "cm", dpi = 1200)
+```
+
+```{r table 1}
+cluster_data[,step := step][step %in% c(0, 490, 990, 1490), .(acc_m = round(mean(acc),2), 
+                                               homog_m = round(mean(homog),2),
+                                               acc_se = round(sd(acc)/sqrt(.N),2),
+                                               homog_se = round(sd(homog)/sqrt(.N),2)),
+             by = .(bin_pol, step)]
+```
+
+## conservative-cluster size correlation
+
+```{r conservative-cluster size correlation}
+corr_data <- data.table(
+    read_csv(str_c(main_dir,"plot_data/cons_prop_corr-beta.csv"))
+    )[1:150,][, step := 1:150]
+
+size_prop_data <- data.table(
+    read_csv(str_c(main_dir, "plot_data/size_prop-beta.csv")))
+
+loc <- 85
+
+cons_cor_cluster_plot <- 
+  ggplot(data = corr_data, 
+         aes(y = cons_prop_corr,
+             x=step))+
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "#D55E00")+
+  ylim(-0.1,0.1)+
+  geom_line(linewidth = 0.5, colour =" black")+
+  geom_point(aes(corr_data$cons_prop_corr[loc], x = loc), shape = 4, colour="#56B4E9")+
+  labs(y = "Average Correlation", x= "Time steps", 
+       title = "Conservative-cluster size correlation")+
+  theme_ggstatsplot() +
+  theme(panel.background = element_rect(fill = "white", color = "black", linetype ="solid"),
+        strip.background = element_rect(fill = "white", color = "white"),
+        strip.text = element_text(size = 8),
+        axis.text = element_text(size = 7),
+        plot.title = element_text(size = 9),
+        axis.title = element_text(size = 8),
+        axis.line = element_line(color = "black"))
+
+cons_cluster_plot <- 
+  ggplot(data = size_prop_data, 
+                                  aes(y = cons_prop,x=cluster_size))+
+  geom_point(alpha = 0.5, size = 0.5)+
+  stat_smooth(method = "lm", col ="#56B4E9", se = F, linewidth = 0.5)+
+  labs(y = "Conservative proportion", x= "Cluster Size", 
+       color = "Political identity", title = "Time Step 85")+
+  theme_ggstatsplot() +
+  theme(panel.background = element_rect(fill = "white", color = "black", linetype ="solid"),
+        strip.background = element_rect(fill = "white", color = "white"),
+        strip.text = element_text(size = 8),
+        axis.text = element_text(size = 7),
+        plot.title = element_text(size = 9),
+        axis.title = element_text(size = 8),
+        axis.line = element_line(color = "black"))
+
+(cons_cor_cluster_plot / cons_cluster_plot) +
+  plot_layout(heights = c(2/3, 1/3))+
+  plot_annotation(tag_levels = 'A')
+
+# uncomment to save in size used in the paper
+#ggsave(filename = "ver_cor_cluster_beta.png", path = main_dir, 
+#       width =8.2, height = 10, units = "cm", dpi = 1200)
+```
+
+# Moral values
+
+```{r data}
+
+mf_files <- list.files(path = str_c(main_dir, "simulation_data/"), pattern = "*.csv", full.names = T)
+
+mf_data <- data.table()
+i <- 1
+
+for (f in mf_files) {
+  cur <- fread(f)
+  cur <- cur[, "group" := i]
+  i <- i + 1
+  mf_data <- rbind(cur, mf_data)
+}
+
+rm(cur)
+
+# tidy
+mfs <- c("care", "fairness", "ingroup", "authority", "purity")
+
+# pivot longer and add mean and sds for each beta distribution
+mf_data_long <- melt(mf_data, 
+                          measure.vars = patterns("_a$", "_b$"),
+                          value.name = c("a", "b"), 
+                          variable.factor = T,
+                          variable.name = "mf") [, mf := factor(mf, 
+                                                                labels = mfs)
+                                                 ] [, "mean" := a / (a + b)]
+#Capitalise group names for plotting purposes
+mf_data_long$bin_pol<- factor(mf_data_long$bin_pol, labels = c("Conservative", "Liberal"))
+mf_data_long$mf <- factor(mf_data_long$mf, labels = c("Care", "Fairness", "Ingroup loyalty", "Authority", "Purity"))
+
+#tidy for memory purposes
+rm(mf_data)
+gc()
+```
+
+## average sd - start and finish
+
+```{r uncertainty}
+mf_data_long[step %in% c(0,1000),.(sd = mean(sqrt((a*b)/(((a+b)^2)*(a + b + 1))))), 
+                                        by=.(mf, bin_pol,step)] |> arrange(bin_pol,step,sd)
+```
+
+## time plots
+
+```{r time plots }
+#  mean log time ----
+mean_time_log_plot <- 
+ggplot(data = mf_data_long, 
+      aes(y = mean,x=step))+
+  stat_summary(geom = "line", alpha = 0.05, aes(colour = mf, 
+                                               group = interaction(group, bin_pol, mf)))+
+  stat_summary(geom = "line",aes(colour = mf))+
+  facet_grid(~bin_pol)+
+  scale_color_manual(values=c("#CC79A7", "#D55E00", "#56B4E9", "#E69F00", "#009E73"))+  
+  ylim(0,1)+  
+  scale_x_log10()+
+  labs(y = "Average Beta mean", x= "Time steps", color = "")+
+  theme_ggstatsplot() +
+  theme(panel.background = element_rect(fill = "white", color = "black", linetype ="solid"),
+        strip.background = element_rect(fill = "white", color = "white"),
+        axis.line = element_line(color = "black"),
+        strip.text = element_text(size = 8),
+        axis.text = element_text(size = 7),
+        axis.title = element_text(size = 8),
+        legend.background = element_rect(fill = "white", color = "black"))
+
+# rand mean time ----
+mean_time_plot <- 
+  ggplot(data = mf_data_long, 
+                                  aes(y = mean,x=step))+
+  stat_summary(geom = "line", alpha = 0.05, aes(colour = mf, 
+                                               group = interaction(group, bin_pol, mf)))+
+  stat_summary(geom = "line",aes(colour = mf))+
+  facet_grid(~bin_pol)+
+  scale_color_manual(values=c("#CC79A7", "#D55E00", "#56B4E9", "#E69F00", "#009E73"))+  
+  ylim(0,1)+
+  labs(y = "Average Beta mean", x= "Time steps", color = "")+
+  theme_ggstatsplot() +
+  theme(panel.background = element_rect(fill = "white", color = "black", linetype ="solid"),
+        strip.background = element_rect(fill = "white", color = "white"),
+        strip.text = element_text(size = 8),
+        axis.text = element_text(size = 7),
+        axis.title = element_text(size = 8),
+        axis.line = element_line(color = "black"),
+        legend.background = element_rect(fill = "white", color = "black"))
+
+# plot laytot ----
+(mean_time_plot | mean_time_log_plot) +
+  plot_annotation(tag_levels = "A")+
+  plot_layout(guides = "collect") &
+  theme(legend.position='bottom',
+        legend.key.size = unit(0.4, "cm"),
+        legend.text = element_text(size = 6),
+        legend.title = element_text(size = 6))
+
+# save plot ----
+# uncomment to save in size used in the paper
+#ggsave(filename = "hor_time_priors.png", path = main_dir, 
+#       width =17, height = 6, units = "cm", dpi = 1200)
+```
+

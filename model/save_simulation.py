@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from MoralABM import MoralABM
@@ -5,7 +6,7 @@ from MoralABM import MoralABM
 # import matplotlib.pyplot as plt
 
 # Import prior data
-mf_priors = pd.read_csv('./priors/mf_priors.csv')
+mf_priors = pd.read_csv('./data/priors/mf_sample_priors.csv')
 
 # define the moral foundation parameter order
 foundations = ['care', 'fairness', 'ingroup', 'authority', 'purity']
@@ -38,14 +39,15 @@ liberal_betas = mf_priors[mf_priors.bin_pol=='liberal'].groupby('id').apply(
 
 
 beta = True # Use beta distributions for moral foundations
-n_sims = 2
-n_agent_mean = 100 # mean of normal 
-n_agent_scale = 15 # std dev
+n_sims = 10
+n_agent_mean = 15 # mean of normal 
+n_agent_scale = 5 # std dev
 
 n_agent_samples = np.random.normal(loc=n_agent_mean, scale=n_agent_scale,size=n_sims)
-n_steps = 2001
+n_steps = 1001
 
-data_loc = './simulation_data/'
+data_loc = './data/example_data/simulation_data/'
+os.makedirs(data_loc, exist_ok=True)
 
 # Set the priors according to the method
 conservative_priors = conservative_betas if beta else liberal_dirichlet
@@ -64,11 +66,10 @@ for sim in range(n_sims):
                    n_steps = n_steps,
                    priors = [conservative_priors,liberal_priors],
                    beta_prior=beta,
-                   normalize=True
-                  )
+                   normalize=True)
 
     # save the data    
-    np.save(data_loc+'mf_'+f'{'beta' if beta else 'dirichlet'}'+'-' + str(sim_id) + '.npy',
+    np.save(data_loc+'mf_'+f"{'beta' if beta else 'dirichlet'}"+'-' + str(sim_id) + '.npy',
             abm.M_agents[:,:,:-1,[n%10==0 for n in range(n_steps)]])
 
     if beta:
@@ -80,7 +81,7 @@ for sim in range(n_sims):
                    for i in range(n_agents) for t in range(n_steps) if t%10==0]
                    
                    
-    pd.DataFrame(mf_data).to_csv(data_loc+'moral_abm_'+f'{'beta' if beta else 'dirichlet'}'+'-'+str(sim_id)+'.csv',index=False)
+    pd.DataFrame(mf_data).to_csv(data_loc+'moral_abm_'+f"{'beta' if beta else 'dirichlet'}"+'-'+str(sim_id)+'.csv',index=False)
     
 
     # AMs = np.array([abm.get_adjacency_matrix(step) for step in range(n_steps) if step%10 ==0])

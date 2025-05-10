@@ -9,7 +9,7 @@ def softmax(x,b=1):
 
 class MoralABM():
 
-    def __init__(self,n_agents=10,n_steps=50,beta_prior=False,priors=[],normalize=False,self_influence=False):
+    def __init__(self,n_agents=10,n_steps=50,beta_prior=False,priors=[],normalize=False):
         ## Define agents' moral distribution parameters
         if beta_prior:
             self.n_params = 10 + 1 # 10 moral representations (betas) + 1 reliability
@@ -37,8 +37,6 @@ class MoralABM():
         # generated graphs
         self.mf_graph = np.zeros((self.n_steps,self.n_agents,self.n_agents))
         self.belief_graph = np.zeros((self.n_steps,self.n_agents,self.n_agents))
-
-        self.self_influence = self_influence
 
         if not priors:
             # Set moral distribution priors
@@ -70,7 +68,7 @@ class MoralABM():
                 
                 # Assume all other agents are random
                 self.M_agents[agent_i,:,:(self.n_params-1),0] = np.random.rand(n_agents,self.n_params-1)*6+1
-                # Assume all other agents are the same
+                # # Assume all other agents are the same
                 # for agent_a in range(n_agents):
                 #     self.M_agents[agent_i,agent_a,:(self.n_params-1),0] = self.M_agents[agent_i,agent_i,:(self.n_params-1),0]
                 self.M_agents[agent_i,agent_i,:(self.n_params-1),0] =  prior[self.agent_ids[agent_i]]
@@ -95,12 +93,11 @@ class MoralABM():
     # generate a moral signal
     def generate_signal(self,agent_i,step):
         morals = self.sample_moral_values(agent_i,agent_i,step)
-        moral_dilemmas = np.random.choice(np.arange(5),2, replace=False)
         # signal = np.random.choice(np.arange(5), p=morals)
-        morals_normed = softmax([moral for i, moral in enumerate(morals) if i in moral_dilemmas],
+        morals_normed = softmax(morals,
                                 b=self.M_agents[agent_i,agent_i,self.n_params-1,step]
                                )
-        signal = np.random.choice(moral_dilemmas, p=morals_normed)
+        signal = np.random.choice(np.arange(5), p=morals_normed)
         return signal
     
     # compute likelihood of a signal
@@ -146,8 +143,8 @@ class MoralABM():
                 for agent_a in range(self.n_agents):
                     if self.n_params>6:
                         for i in 2*np.arange(5):
-                            unnormed_vals = self.M_agents[agent_i,agent_a,i:i+2,step]
-                            self.M_agents[agent_i,agent_a,i:i+2,step] = unnormed_vals/sum(unnormed_vals)
+                            unnormed_vals = self.M_agents[agent_i,agent_a,i:i:+2,step]
+                            self.M_agents[agent_i,agent_a,i:i:+2,step] = unnormed_vals/sum(unnormed_vals)
                     else:
                         unnormed_vals = self.M_agents[agent_i,agent_a,:(self.n_params-1),step]
                         self.M_agents[agent_i,agent_a,:(self.n_params-1),step] = unnormed_vals/sum(unnormed_vals)
@@ -155,10 +152,6 @@ class MoralABM():
         self.M_agents[:,:,:,step+1] = self.M_agents[:,:,:,step] # copy last state
         for agent_i in range(self.n_agents):
             for agent_a in range(self.n_agents):
-                # skip the update here if we do not want self-influencing (a critical point for polarization)
-                if not self.self_influence:
-                    if agent_i == agent_a:
-                        continue
                 signal_a = int(self.signals[agent_a,step])
                 if self.n_params >6:
                     self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][2*signal_a] += 1 # Beta-Multinomial update
@@ -167,8 +160,7 @@ class MoralABM():
                     self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][b_locs] += 1/4 # Beta-Multinomial update
                 else:
                     self.M_agents[agent_i,agent_a,:(self.n_params-1),step+1][signal_a] += 1 # Dirichlet-Multinomial update
-                
-                if agent_i == agent_a: # No need to compute KLdivs if already updated itself
+                if agent_i == agent_a:
                     continue
 
                 # Compute and save the KL divergencces of the previous state
@@ -176,7 +168,7 @@ class MoralABM():
                 self.mf_graph[step,agent_i,agent_a] = self.KL_divergence(agent_a,agent_i,step,belief=False)
                 
                 # Weighted update
-                update_weight = np.exp(-self.belief_graph[step,agent_i,agent_a])#/(self.n_agents-1) # Dirichlet-Multinomial update 
+                update_weight = np.exp(-self.belief_graph[step,agent_i,agent_a])/(self.n_agents-1) # Dirichlet-Multinomial update 
                 
 
                 if self.n_params >6:
