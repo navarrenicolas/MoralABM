@@ -1,6 +1,8 @@
 # Political Polarization and Fractionalisation from Rational Values-Based Inference in an Agent-Based Graph Network
 
-## Nicolas Navarre, Julie Pedersen, Adam Moore
+**Nicolas Navarre, Julie Pedersen, Adam Moore**
+
+[Preprint](https://osf.io/r4adg_v1)
 
 ## Data
 
